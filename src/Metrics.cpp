@@ -20,13 +20,13 @@ double Metrics::compute_ndcg(const std::vector<TopResult>& results, const std::u
         auto it = doc_relevances.find(results[i].doc_id);
         if (it != doc_relevances.end()) {
             int rel = it->second;
-            dcg += (std::pow(2.0, rel) - 1.0) / std::log2(i + 2.0); // i+2 because log2(rank+1) where rank is 1-based
+            dcg += (std::pow(2.0, rel) - 1.0) / std::log2(i + 2.0); // log2(rang + 1)
         }
     }
 
     if (dcg == 0.0) return 0.0;
 
-    // Ideal DCG
+    // DCG Idéal
     std::vector<int> ideal_rels;
     for (const auto& kv : doc_relevances) {
         ideal_rels.push_back(kv.second);
@@ -54,7 +54,7 @@ LatencyMetrics Metrics::compute_latency_metrics(std::vector<double> latencies) {
 
     std::sort(latencies.begin(), latencies.end());
     
-    // Median
+    // Médiane
     size_t n = latencies.size();
     if (n % 2 == 0) {
         metrics.median = (latencies[n / 2 - 1] + latencies[n / 2]) / 2.0;
@@ -62,9 +62,9 @@ LatencyMetrics Metrics::compute_latency_metrics(std::vector<double> latencies) {
         metrics.median = latencies[n / 2];
     }
     
-    // P99
+    // Percentile 99 (P99)
     size_t p99_idx = std::ceil(0.99 * n) - 1;
-    // ensure p99_idx is bounded
+    // Borner l'index du P99
     p99_idx = std::max((size_t)0, std::min(p99_idx, n - 1));
     metrics.p99 = latencies[p99_idx];
 

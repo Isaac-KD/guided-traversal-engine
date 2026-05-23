@@ -6,7 +6,7 @@ import subprocess
 import math
 from pathlib import Path
 
-# Paths to datasets
+# Chemins vers les datasets
 DATASETS = {
     'trec2019': 'Archive/2019/trec2019-queries.tsv',
     'trec2020': 'Archive/2020/msmarco-test2020-queries.tsv',
@@ -25,14 +25,14 @@ def load_vocab(vocab_path):
         return json.load(f)
 
 def tokenize(text, vocab):
-    # Lowercase and extract alphanumeric words
+    # Passage en minuscules et extraction des mots alphanumériques
     words = re.findall(r'\w+', text.lower())
     token_ids = []
     for w in words:
         if w in vocab:
             token_ids.append(str(vocab[w]))
         else:
-            # Token not found
+            # Token absent du vocabulaire
             pass
     return token_ids
 
@@ -100,7 +100,7 @@ def evaluate_metrics(run_file, qrels, k=10):
             continue
         evaluated_queries += 1
         
-        # MRR@k
+        # Calcul du MRR@k
         mrr = 0.0
         for i, (rank, docid) in enumerate(run[qid][:k]):
             if docid in qrels[qid]:
@@ -108,7 +108,7 @@ def evaluate_metrics(run_file, qrels, k=10):
                 break
         mrr_sum += mrr
         
-        # NDCG@k
+        # Calcul du NDCG@k
         dcg = 0.0
         for i, (rank, docid) in enumerate(run[qid][:k]):
             rel = qrels[qid].get(docid, 0)

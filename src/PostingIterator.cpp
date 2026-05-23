@@ -32,7 +32,7 @@ void PostingIterator::next() {
 void PostingIterator::next_GEQ(uint32_t target_doc_id) {
     if (is_done() || current_posting.doc_id >= target_doc_id) return;
 
-    // Binary search for target_doc_id
+    // Recherche dichotomique pour target_doc_id
     uint32_t low = current_idx;
     uint32_t high = total_postings - 1;
     uint32_t ans = total_postings;

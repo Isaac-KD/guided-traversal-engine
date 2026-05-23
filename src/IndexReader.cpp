@@ -19,7 +19,7 @@ IndexReader::~IndexReader() {
 }
 
 bool IndexReader::load(const std::string& vocab_path, const std::string& posting_path) {
-    // 1. Load vocab.bin
+    // 1. Chargement de vocab.bin
     std::ifstream v_file(vocab_path, std::ios::binary);
     if (!v_file) {
         std::cerr << "Cannot open vocab file: " << vocab_path << std::endl;
@@ -42,7 +42,7 @@ bool IndexReader::load(const std::string& vocab_path, const std::string& posting
     }
     v_file.close();
 
-    // 2. Mmap posting.bin
+    // 2. Mapping en mémoire de posting.bin
     posting_fd = open(posting_path.c_str(), O_RDONLY);
     if (posting_fd == -1) {
         std::cerr << "Cannot open posting file: " << posting_path << std::endl;

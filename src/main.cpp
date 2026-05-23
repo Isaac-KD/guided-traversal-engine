@@ -8,7 +8,7 @@
 #include "MaxScoreGT.hpp"
 #include "Metrics.hpp"
 
-// Utility to split strings
+// Fonction utilitaire pour séparer une chaîne par un délimiteur
 std::vector<std::string> split(const std::string& s, char delimiter) {
     std::vector<std::string> tokens;
     std::string token;
@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
     std::cout << "Index loaded successfully." << std::endl;
 
     if (argc >= 6) {
-        // Batch Evaluation Mode
+        // Mode évaluation par lots (Batch)
         std::string queries_file = argv[3];
         std::string run_name = argv[4];
         std::string output_file = argv[5];
@@ -73,13 +73,13 @@ int main(int argc, char** argv) {
 
         bool use_gti = (run_name.find("GTI") != std::string::npos);
 
-        // --- Warmup Pass (same k as real run to load all needed pages) ---
+        // --- Phase de préchauffage (Warmup avec le même k) ---
         std::cout << "Warming up index cache in RAM..." << std::endl;
         for (const auto& q : queries) {
             MaxScoreGT::search(index, q.second, 1000, use_gti);
         }
 
-        // --- Evaluation Pass ---
+        // --- Phase d'évaluation réelle ---
         std::cout << "Running queries..." << std::endl;
         int query_count = 0;
         std::vector<double> latencies;
@@ -110,7 +110,7 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    // Interactive Mode
+    // Mode interactif (Console)
     std::cout << "Enter query term IDs separated by space (Ctrl+D to exit):" << std::endl;
     
     std::vector<uint32_t> query;
@@ -124,7 +124,7 @@ int main(int argc, char** argv) {
         if (std::cin.peek() == '\n' || std::cin.peek() == EOF) {
             if (!query.empty()) {
                 auto start_gt = std::chrono::high_resolution_clock::now();
-                auto results = MaxScoreGT::search(index, query, 10, false); // Increased to 10 for interactive
+                auto results = MaxScoreGT::search(index, query, 10, false); // K=10 en interactif
                 auto end_gt = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double, std::milli> diff_gt = end_gt - start_gt;
                 latencies_gt.push_back(diff_gt.count());
@@ -136,7 +136,7 @@ int main(int argc, char** argv) {
                 }
 
                 auto start_gti = std::chrono::high_resolution_clock::now();
-                auto results_gti = MaxScoreGT::search(index, query, 10, true); // Increased to 10 for interactive
+                auto results_gti = MaxScoreGT::search(index, query, 10, true); // K=10 en interactif
                 auto end_gti = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double, std::milli> diff_gti = end_gti - start_gti;
                 latencies_gti.push_back(diff_gti.count());

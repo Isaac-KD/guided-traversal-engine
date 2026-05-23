@@ -4,7 +4,7 @@
 
 namespace utils {
 
-    // Converts a float16 (stored as uint16_t) to float32
+    // Convertit un float16 (uint16_t) en float32
     inline float half_to_float(uint16_t h) {
         uint32_t sign = (h >> 15) & 0x00000001;
         uint32_t exp  = (h >> 10) & 0x0000001F;
@@ -15,11 +15,11 @@ namespace utils {
 
         if (exp == 0) {
             if (frac == 0) {
-                // Zero
+                // Zéro
                 f_exp = 0;
                 f_frac = 0;
             } else {
-                // Denormalized
+                // Dénormalisé
                 while ((frac & 0x00000400) == 0) {
                     frac <<= 1;
                     exp--;
@@ -30,11 +30,11 @@ namespace utils {
                 f_frac = frac << 13;
             }
         } else if (exp == 0x1F) {
-            // Inf or NaN
+            // Infini ou NaN
             f_exp = 0xFF;
             f_frac = frac << 13;
         } else {
-            // Normalized
+            // Normalisé
             f_exp = exp + (127 - 15);
             f_frac = frac << 13;
         }

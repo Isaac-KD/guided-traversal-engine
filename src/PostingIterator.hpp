@@ -17,20 +17,20 @@ private:
     void read_current();
 
 public:
-    // Note: To allow default construction in vectors, we can provide a default constructor
+    // Constructeur par défaut (utile pour l'utilisation dans des conteneurs)
     PostingIterator() : base_ptr(nullptr), total_postings(0), current_idx(0) {}
     PostingIterator(const uint8_t* ptr, uint32_t nb_postings);
 
-    // Advance to the next document
+    // Avancer au document suivant
     void next();
 
-    // Advance to the first document >= target_doc_id
+    // Avancer jusqu'au premier document >= target_doc_id
     void next_GEQ(uint32_t target_doc_id);
 
-    // Get current posting info
+    // Récupérer la posting courante
     const Posting& get_posting() const { return current_posting; }
 
-    // Check if we reached the end
+    // Vérifier si la fin est atteinte
     bool is_done() const { return current_idx >= total_postings; }
 
     uint32_t doc_id() const { return current_posting.doc_id; }

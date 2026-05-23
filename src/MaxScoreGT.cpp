@@ -25,7 +25,7 @@ std::vector<TopResult> MaxScoreGT::search(
 
     if (terms.empty()) return {};
 
-    // Sort terms by UB_BM25 ascending
+    // Tri des termes par borne supérieure de BM25 croissante
     std::sort(terms.begin(), terms.end(), [](const QueryTerm& a, const QueryTerm& b) {
         return a.info.ub_bm25 < b.info.ub_bm25;
     });
@@ -43,7 +43,7 @@ std::vector<TopResult> MaxScoreGT::search(
     float theta_bm25 = 0.0f;
     int pivot = 0;
     
-    // Find initial current_doc
+    // Recherche du premier document à évaluer
     uint32_t current_doc = std::numeric_limits<uint32_t>::max();
     for (int i = 0; i < n_terms; ++i) {
         if (!terms[i].it.is_done()) {
@@ -56,7 +56,7 @@ std::vector<TopResult> MaxScoreGT::search(
         float score_di = 0.0f;
         uint32_t next_doc = std::numeric_limits<uint32_t>::max();
 
-        // Evaluate essential terms (>= pivot)
+        // Évaluation des termes essentiels (>= pivot)
         for (int i = pivot; i < n_terms; ++i) {
             terms[i].it.next_GEQ(current_doc);
             if (!terms[i].it.is_done()) {
@@ -68,7 +68,7 @@ std::vector<TopResult> MaxScoreGT::search(
             }
         }
 
-        // Evaluate non-essential terms (< pivot) only if BM25 upper bound allows
+        // Évaluation des termes non essentiels (< pivot) si la borne supérieure le permet
         float max_possible_bm25 = score_bm25 + (pivot > 0 ? prefix_ub[pivot - 1] : 0.0f);
         if (max_possible_bm25 > theta_bm25) {
             for (int i = pivot - 1; i >= 0; --i) {
@@ -83,7 +83,7 @@ std::vector<TopResult> MaxScoreGT::search(
                 }
             }
 
-            // Update BM25 heap
+            // Mise à jour du tas BM25
             if (heap_bm25.size() < (size_t)k || score_bm25 > theta_bm25) {
                 heap_bm25.push({current_doc, score_bm25});
                 if (heap_bm25.size() > (size_t)k) {
@@ -91,21 +91,21 @@ std::vector<TopResult> MaxScoreGT::search(
                 }
                 theta_bm25 = heap_bm25.size() == (size_t)k ? heap_bm25.top().score : 0.0f;
                 
-                // Update pivot
+                // Ajustement du pivot
                 while (pivot < n_terms && prefix_ub[pivot] <= theta_bm25) {
                     pivot++;
                 }
             }
         }
 
-        // Guided Traversal: Update DeepImpact heap for ALL visited documents
+        // Guided Traversal : mise à jour du tas DeepImpact pour tous les documents visités
         float final_di_score = use_gti ? (score_bm25 + score_di) : score_di;
         heap_di.push({current_doc, final_di_score});
         if (heap_di.size() > (size_t)k) {
             heap_di.pop();
         }
 
-        // Find next current_doc from essential terms
+        // Recherche du document suivant parmi les termes essentiels
         for (int i = pivot; i < n_terms; ++i) {
             terms[i].it.next_GEQ(current_doc + 1);
             if (!terms[i].it.is_done()) {
@@ -115,7 +115,7 @@ std::vector<TopResult> MaxScoreGT::search(
         current_doc = next_doc;
     }
 
-    // Extract Top-K from DeepImpact heap
+    // Récupération des K meilleurs résultats du tas DeepImpact
     std::vector<TopResult> results;
     while (!heap_di.empty()) {
         results.push_back(heap_di.top());

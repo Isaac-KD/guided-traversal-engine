@@ -24,9 +24,9 @@ public:
 
     bool load(const std::string& vocab_path, const std::string& posting_path);
     
-    // Returns true if term exists, and populates info
+    // Récupère les infos d'un terme. Retourne vrai si le terme existe.
     bool get_term_info(uint32_t term_id, TermInfo& info) const;
     
-    // Returns iterator. Assumes term exists.
+    // Retourne l'itérateur pour le terme (supposé existant).
     PostingIterator get_posting_iterator(const TermInfo& info) const;
 };
