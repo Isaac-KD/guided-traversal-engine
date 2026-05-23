@@ -1,96 +1,109 @@
-# Moteur de Recherche par Parcours Guidé (Guided Traversal Engine)
+# Moteur de Recherche par Parcours Guidé (MaxScore Guided Traversal)
 
-Ce projet implémente un moteur de recherche en C++ basé sur l'algorithme MaxScore avec parcours guidé (Guided Traversal), conçu pour évaluer efficacement les stratégies de parcours d'index inversés. Ce rapport résume l'architecture du moteur, les instructions de compilation et d'exécution, ainsi que les résultats des évaluations expérimentales sur les collections MSMARCO Dev, TREC 2019 et TREC 2020.
-
----
-
-## 1. Présentation du Moteur
-
-Le moteur implémente l'algorithme de parcours d'index MaxScore et évalue deux stratégies distinctes :
-* **GT (Guided Traversal)** : Le parcours de l'index et l'élagage des documents non prometteurs s'appuient sur les bornes supérieures des scores BM25 (UB_BM25). Cependant, le score final de pertinence utilisé pour le classement des documents dans le tas des K meilleurs résultats provient uniquement du modèle neuronal DeepImpact.
-* **GTI (Guided Traversal with Interpolation)** : Similaire à GT pour l'élagage lors du parcours, mais le score final de classement est une interpolation linéaire combinant le score BM25 classique et le score DeepImpact.
+Ce projet implémente un moteur de recherche en C++ basé sur l'algorithme MaxScore avec parcours guidé (Guided Traversal). Il a été conçu pour évaluer efficacement deux stratégies de classement (GT et GTI) sur les collections MSMARCO Dev, TREC 2019 et TREC 2020.
 
 ---
 
-## 2. Compilation et Utilisation
+## 1. Description des Fichiers du Projet
 
-### Prérequis
-* Un compilateur C++ supportant le standard C++17 (GCC, Clang)
-* CMake (version 3.10 ou supérieure)
-* Make
+### Arborescence du Dépôt
+Voici la structure visuelle des répertoires et fichiers du projet (les éléments ignorés par le `.gitignore` ne sont pas affichés) :
 
-### Compilation du projet
-Pour compiler le projet, exécutez les commandes suivantes depuis la racine du dépôt :
+```text
+.
+├── CMakeLists.txt
+├── README.md
+├── article.pdf
+├── context.md
+├── debug_coverage.py
+├── debug_ndcg.py
+├── debug_runs.py
+├── debug_scores.py
+├── inspect_json.py
+├── main.py
+├── res.md
+└── src/
+    ├── Float16.hpp
+    ├── IndexReader.cpp
+    ├── IndexReader.hpp
+    ├── MaxScoreGT.cpp
+    ├── MaxScoreGT.hpp
+    ├── Metrics.cpp
+    ├── Metrics.hpp
+    ├── PostingIterator.cpp
+    ├── PostingIterator.hpp
+    └── main.cpp
+```
+
+---
+
+### Rôle de chaque fichier
+
+#### Code Source C++ (Dossier `src/`)
+* **`src/main.cpp`** : Point d'entrée du moteur. Il gère le chargement de l'index binaire en RAM et oriente l'exécution entre le mode d'évaluation automatique par lots (Batch) et le mode console interactif.
+* **`src/MaxScoreGT.hpp` / `src/MaxScoreGT.cpp`** : Implémentation du cœur de l'algorithme MaxScore avec parcours guidé :
+  * **GT (Guided Traversal)** : Élagage des documents via les bornes supérieures BM25, puis classement final basé uniquement sur DeepImpact.
+  * **GTI (Guided Traversal with Interpolation)** : Même élagage, mais classement final basé sur la somme interpolée de BM25 et de DeepImpact.
+* **`src/IndexReader.hpp` / `src/IndexReader.cpp`** : Gère le chargement du dictionnaire (`vocab.bin`) dans une table de hachage et utilise la projection en mémoire (`mmap`) pour lire très rapidement le fichier binaire des postings (`posting.bin`).
+* **`src/PostingIterator.hpp` / `src/PostingIterator.cpp`** : Permet de parcourir les listes de postings de l'index. Gère l'avancement d'un document à l'autre et intègre la recherche dichotomique (`next_GEQ`) pour sauter les documents non pertinents lors de l'évaluation MaxScore.
+* **`src/Metrics.hpp` / `src/Metrics.cpp`** : Module de calcul des métriques pour mesurer l'efficacité de la recherche : NDCG@K, Reciprocal Rank @K (MRR), ainsi que les statistiques de latence (moyenne, médiane et percentile 99).
+* **`src/Float16.hpp`** : Contient un convertisseur d'encodage float16 (les scores BM25 et DeepImpact étant stockés sous forme compacte de `uint16_t` dans l'index) vers le format standard float 32 bits.
+
+#### Outils de Compilation et d'Exécution
+* **`CMakeLists.txt`** : Script CMake permettant de configurer la compilation de l'exécutable C++ de manière propre et portable.
+* **`main.py`** : Script de pilotage principal en Python. Il automatise la tokenisation des requêtes brutes des datasets, exécute le moteur C++ en arrière-plan et calcule les métriques globales.
+
+#### Scripts de Débogage et Analyse
+* **`debug_coverage.py`** : Analyse le taux de couverture des requêtes par rapport au dictionnaire des termes.
+* **`debug_ndcg.py`** : Vérifie la validité des calculs du NDCG par rapport aux fichiers de jugements de pertinence (Qrels).
+* **`debug_runs.py` / `debug_scores.py`** : Permettent de comparer finement les scores et les documents renvoyés entre différentes versions.
+* **`inspect_json.py`** : Script utilitaire court pour inspecter les fichiers JSON intermédiaires de métadonnées.
+
+#### Rapports et Documents de Référence
+* **`README.md`** : Ce guide de présentation et d'exécution du projet.
+* **`article.pdf`** : L'article scientifique de recherche original qui détaille le fonctionnement de l'algorithme MaxScore Guided Traversal.
+* **`context.md` / `res.md`** : Notes d'analyse complémentaires et historique des résultats.
+
+---
+
+## 2. Compilation et Exécution
+
+### Compilation du moteur C++
+Exécutez ces commandes depuis la racine du dépôt pour générer l'exécutable optimisé :
 ```bash
 mkdir -p build
 cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 ```
-L'exécutable généré est nommé `guided_traversal_engine`.
+L'exécutable généré se nomme `guided_traversal_engine`.
 
-### Exécution du moteur
+### Utilisation
 
 #### Mode évaluation par lots (Batch)
-Pour évaluer des requêtes en lot et générer un fichier de résultats au format TREC run, utilisez la syntaxe suivante :
+Pour exécuter des séries entières de requêtes et générer un fichier de résultats compatible avec TREC eval :
 ```bash
 ./guided_traversal_engine <vocab.bin> <posting.bin> <queries_file> <run_name> <output_file>
 ```
 
-#### Mode interactif (Console)
-Pour tester des requêtes textuelles via des identifiants de termes en ligne de commande :
+#### Mode console interactif
+Pour entrer des requêtes à la main (en utilisant des identifiants numériques de termes séparés par des espaces) :
 ```bash
 ./guided_traversal_engine <vocab.bin> <posting.bin>
 ```
-Saisissez ensuite les identifiants des termes séparés par des espaces, puis validez avec Entrée (Ctrl+D pour quitter).
+Saisissez par exemple `1283 502 99` puis appuyez sur Entrée (Ctrl+D pour quitter).
 
 ---
 
-## 3. Résultats Expérimentaux
+## 3. Synthèse des Résultats Expérimentaux
 
-Les évaluations ont été menées en mesurant la latence moyenne, médiane, au 99e percentile (P99) ainsi que l'efficacité du classement (RR@10 ou NDCG@10).
+Le tableau ci-dessous regroupe les performances obtenues sur les 3 collections d'évaluation évaluées :
 
-### Requêtes MSMARCO Dev (Évalué avec RR@10)
-| Stratégie | Latence Moyenne | Latence Médiane | Latence P99 | RR@10 |
-|---|---|---|---|---|
-| **DeepImpact-GT** | 57.0 ms | 24.4 ms | 559.3 ms | **0.3128** |
-| **DeepImpact-GTI** | 49.5 ms | 21.5 ms | 562.7 ms | **0.3073** |
-
-### TREC 2019 (Évalué avec NDCG@10)
-| Stratégie | Latence Moyenne | Latence Médiane | Latence P99 | NDCG@10 |
-|---|---|---|---|---|
-| **DeepImpact-GT** | 20.2 ms | 13.8 ms | 106.4 ms | **0.6299** |
-| **DeepImpact-GTI** | 19.9 ms | 13.7 ms | 105.6 ms | **0.6205** |
-
-### TREC 2020 (Évalué avec NDCG@10)
-| Stratégie | Latence Moyenne | Latence Médiane | Latence P99 | NDCG@10 |
-|---|---|---|---|---|
-| **DeepImpact-GT** | 50.7 ms | 19.6 ms | 555.1 ms | **0.5959** |
-| **DeepImpact-GTI** | 50.2 ms | 19.2 ms | 553.0 ms | **0.5918** |
-
----
-
-## 4. Analyse Comparative avec l'Article Original
-
-### Analyse de la Latence
-Les résultats montrent des latences presque identiques entre les stratégies GT et GTI (~20 ms sur TREC 2019 et ~50 ms sur TREC 2020 et MSMARCO). Cela valide l'implémentation de la logique d'élagage MaxScore : le goulot d'étranglement réside dans le parcours des listes de postings (déterminé par les heuristiques BM25). Le calcul additionnel du score DeepImpact n'induit aucun surcoût mesurable, ce qui concorde avec les conclusions de l'article de référence.
-
-Les latences absolues restent supérieures aux 4.8 ms annoncées dans l'article pour les raisons matérielles et logicielles suivantes :
-1. L'utilisation dans l'article du framework C++ PISA hautement optimisé pour l'ordonnancement SIMD.
-2. L'exécution sur des serveurs professionnels équipés de processeurs haut de gamme (Intel Xeon Gold) avec une grande quantité de mémoire vive maintenant l'index entièrement en cache physique.
-
-### Analyse de l'Efficacité (NDCG / RR)
-Les métriques d'efficacité obtenues sont très proches de celles reportées dans l'article, avec des écarts minimes (de l'ordre de 0.01 à 0.05). Par exemple, sur TREC 2019, la stratégie GT obtient un score **NDCG@10 de 0.6299**, ce qui correspond précisément aux performances illustrées dans l'article original (~0.63).
-
-### Explication des Écarts
-Certaines légères variations, notamment le fait que GTI obtienne parfois un score légèrement inférieur à GT (alors que l'article anticipe une légère amélioration), s'expliquent par les différences techniques au niveau de la préparation de l'index :
-
-1. **Paramétrage de BM25 (Anserini)** : L'article s'appuie sur Anserini avec des paramètres BM25 finement calibrés (`k1=0.82`, `b=0.68`). Notre index utilise les valeurs par défaut standards (`k1=1.2`, `b=0.75`), modifiant légèrement les bornes supérieures et l'ordre d'évaluation des postings.
-2. **Quantification Linéaire 8 bits** : L'article quantifie les scores en entiers 8 bits pour accélérer les opérations via des sommes d'impacts entiers. Notre moteur exploite une représentation en demi-précision (`float16`), ce qui influe sur la dynamique et l'échelle des scores combinés dans la stratégie GTI.
-3. **Réordonnancement des documents (Bipartite Graph Partitioning)** : L'index de l'article a subi un réordonnancement de l'espace des identifiants de documents (BP). Comme MaxScore parcourt et évalue les documents de manière séquentielle, l'assignation des identifiants change directement la vitesse de progression du seuil d'élagage `theta_bm25`, impactant finement le nombre de documents pleinement évalués.
-
----
-
-## 5. Conclusion
-
-Ce moteur de recherche en C++ reproduit fidèlement la logique algorithmique décrite dans l'article de recherche original. L'intégration réussie de la stratégie de parcours guidé (Guided Traversal) démontre qu'il est possible de combiner efficacement la rapidité d'élagage des heuristiques BM25 classiques avec la précision des représentations neuronales creuses de DeepImpact, éliminant ainsi le besoin d'une phase distincte de réordonnancement coûteuse.
+| Collection | Stratégie | Latence Moyenne | Latence Médiane | Latence P99 | Métrique de Qualité |
+|---|---|---|---|---|---|
+| **MSMARCO Dev** | GT | 57.0 ms | 24.4 ms | 559.3 ms | **0.3128** (RR@10) |
+| **MSMARCO Dev** | GTI | 49.5 ms | 21.5 ms | 562.7 ms | **0.3073** (RR@10) |
+| **TREC 2019** | GT | 20.2 ms | 13.8 ms | 106.4 ms | **0.6299** (NDCG@10) |
+| **TREC 2019** | GTI | 19.9 ms | 13.7 ms | 105.6 ms | **0.6205** (NDCG@10) |
+| **TREC 2020** | GT | 50.7 ms | 19.6 ms | 555.1 ms | **0.5959** (NDCG@10) |
+| **TREC 2020** | GTI | 50.2 ms | 19.2 ms | 553.0 ms | **0.5918** (NDCG@10) |
